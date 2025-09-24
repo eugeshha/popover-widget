@@ -1,7 +1,7 @@
 {
-  "name": "popover-widget",
+  "name": "webpack5",
   "version": "1.0.0",
-  "description": "Popover widget implementation on pure JavaScript",
+  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "webpack serve --config webpack.dev.js",
@@ -33,6 +33,7 @@
     "html-webpack-plugin": "5.6.3",
     "http-server": "14.1.1",
     "jest": "29.7.0",
+    "jest-environment-jsdom": "^30.1.2",
     "mini-css-extract-plugin": "2.9.2",
     "prettier": "3.5.0",
     "terser-webpack-plugin": "5.3.11",
