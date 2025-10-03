@@ -7,7 +7,7 @@ export class PopoverWidget {
   show(targetElement, title, content) {
     this.hide();
     this.popover = this.createPopover(title, content);
-    document.body.appendChild(this.popover);
+    document.body.append(this.popover);
     this.positionPopover(targetElement);
     setTimeout(() => {
       this.popover.classList.add("show");
@@ -21,7 +21,7 @@ export class PopoverWidget {
       this.isVisible = false;
       setTimeout(() => {
         if (this.popover && this.popover.parentNode) {
-          this.popover.parentNode.removeChild(this.popover);
+          this.popover.remove();
         }
         this.popover = null;
       }, 300);
@@ -43,15 +43,15 @@ export class PopoverWidget {
       const header = document.createElement("div");
       header.className = "popover-header";
       header.textContent = title;
-      popover.appendChild(header);
+      popover.append(header);
     }
     const body = document.createElement("div");
     body.className = "popover-body";
     body.textContent = content;
-    popover.appendChild(body);
+    popover.append(body);
     const arrow = document.createElement("div");
     arrow.className = "popover-arrow";
-    popover.appendChild(arrow);
+    popover.append(arrow);
     return popover;
   }
 

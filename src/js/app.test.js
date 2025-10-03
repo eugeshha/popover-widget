@@ -1,6 +1,5 @@
 import { PopoverWidget } from "./app";
 
-// Mock setTimeout to execute immediately
 jest.useFakeTimers();
 
 describe("PopoverWidget", () => {
@@ -8,10 +7,8 @@ describe("PopoverWidget", () => {
   let mockTargetElement;
 
   beforeEach(() => {
-    // Clear DOM
     document.body.innerHTML = "";
 
-    // Create a mock target element
     mockTargetElement = document.createElement("button");
     mockTargetElement.getBoundingClientRect = jest.fn(() => ({
       left: 100,
@@ -23,12 +20,10 @@ describe("PopoverWidget", () => {
 
     popoverWidget = new PopoverWidget();
 
-    // Reset timers
     jest.clearAllTimers();
   });
 
   afterEach(() => {
-    // Clean up
     document.body.innerHTML = "";
     jest.clearAllTimers();
   });
@@ -47,7 +42,6 @@ describe("PopoverWidget", () => {
 
       popoverWidget.show(mockTargetElement, title, content);
 
-      // Fast-forward timers to execute setTimeout
       jest.runAllTimers();
 
       expect(popoverWidget.popover).toBeTruthy();
@@ -76,7 +70,6 @@ describe("PopoverWidget", () => {
 
   describe("hide method", () => {
     test("should hide visible popover", () => {
-      // First show a popover
       popoverWidget.show(mockTargetElement, "Title", "Content");
       jest.runAllTimers();
 
@@ -86,7 +79,6 @@ describe("PopoverWidget", () => {
       popoverWidget.hide();
 
       expect(popoverWidget.popover.classList.contains("show")).toBe(false);
-      // isVisible is set to false immediately in hide() method
       expect(popoverWidget.isVisible).toBe(false);
     });
 
@@ -104,6 +96,31 @@ describe("PopoverWidget", () => {
       popoverWidget.popover = null;
 
       expect(() => popoverWidget.hide()).not.toThrow();
+    });
+
+    test("should remove popover from DOM after timeout", () => {
+      popoverWidget.show(mockTargetElement, "Title", "Content");
+      jest.runAllTimers();
+
+      expect(popoverWidget.isVisible).toBe(true);
+      expect(popoverWidget.popover).toBeTruthy();
+
+      popoverWidget.hide();
+      expect(popoverWidget.isVisible).toBe(false);
+
+      jest.runAllTimers();
+
+      expect(popoverWidget.popover).toBeNull();
+    });
+
+    test("should handle popover without parentNode during removal", () => {
+      popoverWidget.popover = document.createElement("div");
+      popoverWidget.isVisible = true;
+
+      popoverWidget.hide();
+      jest.runAllTimers();
+
+      expect(popoverWidget.popover).toBeNull();
     });
   });
 
@@ -187,6 +204,14 @@ describe("PopoverWidget", () => {
   });
 
   describe("adjustPositionForViewport method", () => {
+    beforeEach(() => {
+      Object.defineProperty(window, "innerWidth", {
+        writable: true,
+        configurable: true,
+        value: 800,
+      });
+    });
+
     test("should adjust position when popover is outside viewport", () => {
       const popover = document.createElement("div");
       popover.getBoundingClientRect = jest.fn(() => ({
@@ -202,10 +227,191 @@ describe("PopoverWidget", () => {
       expect(popover.style.left).toBe("10px");
     });
 
+    test("should adjust position when popover exceeds right edge", () => {
+      const popover = document.createElement("div");
+      popover.getBoundingClientRect = jest.fn(() => ({
+        width: 300,
+        height: 100,
+      }));
+      popover.style.left = "600px";
+      popover.style.top = "10px";
+      popoverWidget.popover = popover;
+
+      popoverWidget.adjustPositionForViewport();
+
+      expect(popover.style.left).toBe("490px");
+    });
+
+    test("should adjust position when popover is above viewport", () => {
+      const popover = document.createElement("div");
+      popover.getBoundingClientRect = jest.fn(() => ({
+        width: 300,
+        height: 100,
+      }));
+      popover.style.left = "100px";
+      popover.style.top = "-50px";
+      popoverWidget.popover = popover;
+
+      popoverWidget.adjustPositionForViewport();
+
+      expect(popover.style.top).toBe("10px");
+    });
+
     test("should not adjust if popover is null", () => {
       popoverWidget.popover = null;
 
       expect(() => popoverWidget.adjustPositionForViewport()).not.toThrow();
+    });
+  });
+
+  describe("DOM event listeners", () => {
+    beforeEach(() => {
+      document.body.innerHTML = "";
+      jest.clearAllTimers();
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = "";
+      jest.clearAllTimers();
+    });
+
+    test("should initialize event listeners on DOMContentLoaded", () => {
+      const button1 = document.createElement("button");
+      button1.setAttribute("data-title", "Title 1");
+      button1.setAttribute("data-content", "Content 1");
+      document.body.appendChild(button1);
+
+      const button2 = document.createElement("button");
+      button2.setAttribute("data-title", "Title 2");
+      button2.setAttribute("data-content", "Content 2");
+      document.body.appendChild(button2);
+
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
+
+      const clickEvent = new MouseEvent("click", { bubbles: true });
+      button1.dispatchEvent(clickEvent);
+      jest.runAllTimers();
+
+      const popover = document.querySelector(".popover");
+      expect(popover).toBeTruthy();
+      expect(popover.querySelector(".popover-header").textContent).toBe(
+        "Title 1",
+      );
+      expect(popover.querySelector(".popover-body").textContent).toBe(
+        "Content 1",
+      );
+    });
+
+    test("should hide popover when clicking outside", () => {
+      const button = document.createElement("button");
+      button.setAttribute("data-title", "Title");
+      button.setAttribute("data-content", "Content");
+      document.body.appendChild(button);
+
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
+
+      const clickEvent = new MouseEvent("click", { bubbles: true });
+      button.dispatchEvent(clickEvent);
+      jest.runAllTimers();
+
+      expect(document.querySelector(".popover")).toBeTruthy();
+
+      const outsideClick = new MouseEvent("click", { bubbles: true });
+      document.body.dispatchEvent(outsideClick);
+
+      const popover = document.querySelector(".popover");
+      expect(popover).toBeTruthy();
+      expect(popover.classList.contains("show")).toBe(false);
+    });
+
+    test("should hide popover when pressing Escape", () => {
+      const button = document.createElement("button");
+      button.setAttribute("data-title", "Title");
+      button.setAttribute("data-content", "Content");
+      document.body.appendChild(button);
+
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
+
+      const clickEvent = new MouseEvent("click", { bubbles: true });
+      button.dispatchEvent(clickEvent);
+      jest.runAllTimers();
+
+      expect(document.querySelector(".popover")).toBeTruthy();
+
+      const escapeEvent = new KeyboardEvent("keydown", { key: "Escape" });
+      document.dispatchEvent(escapeEvent);
+
+      const popover = document.querySelector(".popover");
+      expect(popover).toBeTruthy();
+      expect(popover.classList.contains("show")).toBe(false);
+    });
+
+    test("should not hide popover when pressing other keys", () => {
+      const button = document.createElement("button");
+      button.setAttribute("data-title", "Title");
+      button.setAttribute("data-content", "Content");
+      document.body.appendChild(button);
+
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
+
+      const clickEvent = new MouseEvent("click", { bubbles: true });
+      button.dispatchEvent(clickEvent);
+      jest.runAllTimers();
+
+      const popover = document.querySelector(".popover");
+      expect(popover).toBeTruthy();
+
+      const otherKeyEvent = new KeyboardEvent("keydown", { key: "Enter" });
+      document.dispatchEvent(otherKeyEvent);
+
+      expect(popover.classList.contains("show")).toBe(true);
+    });
+
+    test("should not hide popover when clicking on popover itself", () => {
+      const button = document.createElement("button");
+      button.setAttribute("data-title", "Title");
+      button.setAttribute("data-content", "Content");
+      document.body.appendChild(button);
+
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
+
+      const clickEvent = new MouseEvent("click", { bubbles: true });
+      button.dispatchEvent(clickEvent);
+      jest.runAllTimers();
+
+      const popover = document.querySelector(".popover");
+      expect(popover).toBeTruthy();
+
+      const popoverClick = new MouseEvent("click", { bubbles: true });
+      popover.dispatchEvent(popoverClick);
+
+      expect(popover.classList.contains("show")).toBe(true);
+    });
+
+    test("should not hide popover when clicking on button", () => {
+      const button = document.createElement("button");
+      button.setAttribute("data-title", "Title");
+      button.setAttribute("data-content", "Content");
+      document.body.appendChild(button);
+
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
+
+      const clickEvent = new MouseEvent("click", { bubbles: true });
+      button.dispatchEvent(clickEvent);
+      jest.runAllTimers();
+
+      const popover = document.querySelector(".popover");
+      expect(popover).toBeTruthy();
+
+      button.dispatchEvent(clickEvent);
+
+      expect(popover.classList.contains("show")).toBe(false);
     });
   });
 });
